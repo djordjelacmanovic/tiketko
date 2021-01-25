@@ -1,0 +1,195 @@
+frameworkVersion: "2"
+
+service: tiketko
+
+plugins:
+  - serverless-webpack
+  - serverless-iam-roles-per-function
+
+layers:
+  Pdfkit:
+    name: Pdfkit
+    compatibleRuntimes:
+      - nodejs12.x
+    description: Required for Pdfkit
+    package:
+      artifact: layer/pdfkit-layer.zip
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  lambdaHashingVersion: 20201221
+
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'eu-central-1'}
+  memorySize: 128
+
+  websocketsApiRouteSelectionExpression: $request.body.action
+  httpApi:
+    cors: true
+    authorizers:
+      cognitoJwtAuthorizer:
+        identitySource: $request.header.Authorization
+        issuerUrl:
+          Fn::GetAtt: [CognitoUserPoolTiketkoUserPool, ProviderURL]
+        audience:
+          - !Ref CognitoUserPoolClient
+
+  environment:
+    USERS_TABLE: ${self:custom.usersTableName}
+    TICKETS_TABLE: ${self:custom.ticketsTableName}
+    MESSAGES_TABLE: ${self:custom.messagesTableName}
+    SESSIONS_TABLE: ${self:custom.sessionsTableName}
+
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:*
+      Resource:
+        - "Fn::GetAtt": [UsersTable, Arn]
+        - "Fn::Join": ["", [{ "Fn::GetAtt": ["UsersTable", "Arn"] }, "/*"]]
+        - "Fn::GetAtt": [TicketsTable, Arn]
+        - "Fn::Join": ["", [{ "Fn::GetAtt": ["TicketsTable", "Arn"] }, "/*"]]
+        - "Fn::GetAtt": [SessionsTable, Arn]
+        - "Fn::Join": ["", [{ "Fn::GetAtt": ["SessionsTable", "Arn"] }, "/*"]]
+        - "Fn::GetAtt": [MessagesTable, Arn]
+        - "Fn::Join": ["", [{ "Fn::GetAtt": ["MessagesTable", "Arn"] }, "/*"]]
+
+custom:
+  userPoolName: ${self:provider.stage}-${self:service}-user-pool
+  usersTableName: ${self:provider.stage}-${self:service}-users
+  ticketsTableName: ${self:provider.stage}-${self:service}-support-tickets
+  messagesTableName: ${self:provider.stage}-${self:service}-messages
+  sessionsTableName: ${self:provider.stage}-${self:service}-open-sessions
+  webpack:
+    webpackConfig: webpack.config.js
+    includeModules:
+      forceExclude:
+        - pdfkit
+    packager: npm
+
+functions:
+  hello:
+    handler: src/handlers/hello.hello
+    events:
+      - httpApi:
+          method: post
+          path: /hello
+          authorizer:
+            name: cognitoJwtAuthorizer
+
+  createTicket:
+    handler: src/tickets/create.handler
+    events:
+      - httpApi:
+          method: post
+          path: /tickets
+          authorizer:
+            name: cognitoJwtAuthorizer
+  getTicket:
+    handler: src/tickets/get.handler
+    events:
+      - httpApi:
+          method: get
+          path: /tickets/{id}
+          authorizer:
+            name: cognitoJwtAuthorizer
+
+  updateTicket:
+    handler: src/tickets/update.handler
+    events:
+      - httpApi:
+          method: patch
+          path: /tickets/{id}
+          authorizer:
+            name: cognitoJwtAuthorizer
+
+  listTickets:
+    handler: src/tickets/list.handler
+    events:
+      - httpApi:
+          method: get
+          path: /tickets
+          authorizer:
+            name: cognitoJwtAuthorizer
+
+  exportData:
+    handler: src/data/export.handler
+    layers:
+      - { Ref: PdfkitLambdaLayer }
+    events:
+      - httpApi:
+          method: get
+          path: /data
+          authorizer:
+            name: cognitoJwtAuthorizer
+
+  importData:
+    handler: src/data/import.handler
+    events:
+      - httpApi:
+          method: post
+          path: /data
+          authorizer:
+            name: cognitoJwtAuthorizer
+
+  connectionHandler:
+    handler: src/messages/connection-handler.handler
+    events:
+      - websocket:
+          route: $connect
+          authorizer:
+            name: websocketAuthorizer
+            identitySource:
+              - "route.request.querystring.token"
+      - websocket:
+          route: $disconnect
+
+  messageHandler:
+    handler: src/messages/message-handler.handler
+    events:
+      - websocket:
+          route: $default
+
+  messageDispatcher:
+    handler: src/messages/message-dispatcher.handler
+    events:
+      - stream:
+          type: "dynamodb"
+          arn:
+            Fn::GetAtt: [MessagesTable, StreamArn]
+
+  websocketAuthorizer:
+    handler: src/messages/ws-authorizer.handler
+    environment:
+      COGNITO_USER_POOL_ID: !Ref CognitoUserPoolTiketkoUserPool
+
+  addUserToGroup:
+    handler: src/users/add-user-to-group.handler
+    iamRoleStatementsInherit: true
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - cognito-idp:*
+        Resource:
+          - "Fn::GetAtt": [CognitoUserPoolTiketkoUserPool, Arn]
+
+  postConfirmUser:
+    handler: src/users/post-confirm.handler
+    environment:
+      ADD_USER_TO_GROUP_LAMBDA_NAME: ${self:service}-${self:provider.stage}-addUserToGroup
+    iamRoleStatementsInherit: true
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - lambda:InvokeFunction
+          - lambda:InvokeAsync
+        Resource: "*"
+    events:
+      - cognitoUserPool:
+          pool: TiketkoUserPool
+          trigger: PostConfirmation
+
+resources:
+  - ${file(resources/cognito.yml)}
+  - ${file(resources/dynamodb.yml)}

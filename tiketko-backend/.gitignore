@@ -1,0 +1,18 @@
+# package directories
+node_modules
+jspm_packages
+
+# Serverless directories
+.serverless
+
+# Webpack directories
+.webpack
+
+pdfkit-layer.zip
+test.js
+testread.js
+out.xls
+out.pdf
+output.pdf
+mesage-payload.json
+export.json

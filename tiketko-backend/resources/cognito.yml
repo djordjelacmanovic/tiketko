@@ -1,0 +1,44 @@
+Resources:
+  CognitoUserPoolTiketkoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: ${self:custom.userPoolName}
+      MfaConfiguration: "OFF"
+      # AdminCreateUserConfig:
+      #   AllowAdminCreateUserOnly: true
+      UsernameConfiguration:
+        CaseSensitive: true
+      AutoVerifiedAttributes:
+        - "email"
+      Schema:
+        - Name: "email"
+          Required: true
+          Mutable: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireUppercase: true
+  AdminUserPoolGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: "admin"
+      UserPoolId: !Ref CognitoUserPoolTiketkoUserPool
+  UsersUserPoolGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: "user"
+      UserPoolId: !Ref CognitoUserPoolTiketkoUserPool
+  CognitoUserPoolClient:
+    Type: "AWS::Cognito::UserPoolClient"
+    Properties:
+      ClientName: tiketko-up-client
+      GenerateSecret: False
+      UserPoolId: !Ref CognitoUserPoolTiketkoUserPool
+      ReadAttributes:
+        - email
+        - phone_number
+      WriteAttributes:
+        - email
+        - phone_number
