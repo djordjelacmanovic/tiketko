@@ -1,15 +1,21 @@
 import XLSX from "xlsx";
 import AWS from "aws-sdk";
+import { success } from "../lib/response";
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 export const handler = async ({ requestContext, body }) => {
   console.log(requestContext);
-  let wb = XLSX.read(body, { type: "base64" });
+  let wb = XLSX.read(body, { type: "base64", cellDates: true });
 
   console.log(wb.SheetNames);
   let users = XLSX.utils.sheet_to_json(wb.Sheets["Users"]);
   let tickets = XLSX.utils.sheet_to_json(wb.Sheets["Tickets"]);
   let messages = XLSX.utils.sheet_to_json(wb.Sheets["Messages"]);
+
+  console.log(users);
+  console.log(tickets);
+  console.log(messages);
+
   let usersMap = usersArrToMap(users);
 
   await Promise.all([
@@ -49,6 +55,7 @@ async function importTickets(tickets, usersMap) {
             title: t.title,
             details: t.details,
             ticket_status: t.status,
+            created_at: toIsoStringIfNeeded(t.createdAt),
           },
         })
         .promise();
@@ -63,14 +70,20 @@ async function importMessages(messages, usersMap) {
       await dynamodb
         .put({
           TableName: process.env.MESSAGES_TABLE,
-          ticket_id: m.ticketId,
-          text: m.text,
-          timestamp: m.timestamp,
-          user,
+          Item: {
+            ticket_id: m.ticketId,
+            text: m.text,
+            timestamp: toIsoStringIfNeeded(m.timestamp),
+            user,
+          },
         })
         .promise();
     })
   );
+}
+
+function toIsoStringIfNeeded(date) {
+  return typeof date === "string" ? date : date.toISOString();
 }
 
 function usersArrToMap(users) {
