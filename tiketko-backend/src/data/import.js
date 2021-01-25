@@ -59,7 +59,7 @@ async function importTickets(tickets, usersMap) {
 async function importMessages(messages, usersMap) {
   await Promise.all(
     messages.map(async (m) => {
-      let user = usersMap(m.userId);
+      let user = usersMap[m.userId];
       await dynamodb
         .put({
           TableName: process.env.MESSAGES_TABLE,
