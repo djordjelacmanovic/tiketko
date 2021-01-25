@@ -44,7 +44,7 @@ async function importTickets(tickets, usersMap) {
           TableName: process.env.TICKETS_TABLE,
           Item: {
             id: t.id,
-            user_id: u.id,
+            user_id: user.id,
             user,
             title: t.title,
             details: t.details,
@@ -75,7 +75,7 @@ async function importMessages(messages, usersMap) {
 
 function usersArrToMap(users) {
   let m = {};
-  for (const u of users) {
+  for (let u of users) {
     m[u.id] = u;
   }
   return m;
