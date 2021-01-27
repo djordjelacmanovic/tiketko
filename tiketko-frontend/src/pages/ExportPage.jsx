@@ -17,11 +17,14 @@ export const ExportPage = () => {
 
   let [format, setFormat] = useState("json");
   let [file, setFile] = useState(null);
+  let [date, setDate] = useState(
+    new Date(new Date() - 1000 * 60 * 60 * 24).toISOString().substr(0, 10)
+  );
 
   const onSelectFormat = (ev) => setFormat(ev.target.value);
 
   const exportClick = async () => {
-    await API.get("tiketko-api", "/data", {
+    await API.get("tiketko-api", `/data?startDate=${date}`, {
       headers: {
         Accept: getAcceptHeader(format),
       },
@@ -40,10 +43,21 @@ export const ExportPage = () => {
       getAcceptHeader(format)
     );
   };
+  const onDateChange = (e) => setDate(e.target.value);
 
   return (
     <>
       <h1>Exports</h1>
+      <label for="startDate">Start date:</label>
+
+      <input
+        type="date"
+        id="startDate"
+        name="trip-start"
+        onChange={onDateChange}
+        value={date}
+      />
+
       <select onChange={onSelectFormat}>
         <option value="json" selected={format == "json"}>
           json
@@ -59,8 +73,10 @@ export const ExportPage = () => {
         </option>
       </select>
       <button onClick={exportClick}>Export</button>
+      <label for="importFile">Select file to import: </label>
       <input
         type="file"
+        id="importFile"
         onChange={onFileSelected}
         accept="application/vnd.ms-excel"
       />
