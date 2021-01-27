@@ -1,6 +1,5 @@
 import { json2xml } from "xml-js";
 import XLSX from "xlsx";
-import getStream from "get-stream";
 import PDFDocument from "pdfkit";
 import AWS from "aws-sdk";
 import { User } from "../domain/user";
@@ -11,7 +10,7 @@ import uuid from "uuid/v4";
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const s3 = new AWS.S3();
 
-export default async ({ contentType }) => {
+export default async ({ contentType, query: { startDate } }) => {
   const { Items: userDtos } = await dynamodb
     .scan({
       TableName: process.env.USERS_TABLE,
@@ -25,9 +24,12 @@ export default async ({ contentType }) => {
         .query({
           TableName: process.env.TICKETS_TABLE,
           IndexName: "TicketsByUserAndTime",
-          KeyConditionExpression: "user_id = :user_id",
+          KeyConditionExpression: startDate
+            ? "created_at >= :start_date and user_id = :user_id"
+            : "user_id = :user_id",
           ExpressionAttributeValues: {
             ":user_id": user.id,
+            ":start_date": startDate,
           },
         })
         .promise();

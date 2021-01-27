@@ -13,5 +13,13 @@ export const handler = async ({ requestContext }) => {
     })
     .promise();
 
-  return success(jobs);
+  return success(
+    jobs
+      .sort(({ scheduled_at: s1 }, { scheduled_at: s2 }) => {
+        if (s1 == s2) return 0;
+        if (s1 < s2) return -1;
+        if (s1 > s2) return 1;
+      })
+      .reverse()
+  );
 };

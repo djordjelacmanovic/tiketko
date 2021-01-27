@@ -1,16 +1,19 @@
-import { success, unauthorized } from "../lib/response";
+import { badRequest, success, unauthorized } from "../lib/response";
 import uuid from "uuid/v4";
 import AWS from "aws-sdk";
 
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 export const handler = async (event) => {
-  const { headers, requestContext } = event;
+  const { headers, requestContext, queryStringParameters } = event;
 
   let group = requestContext.authorizer.jwt.claims["cognito:groups"];
   if (!group.includes("admin")) return unauthorized();
 
-  let data = { contentType: headers.accept };
+  if (queryStringParameters.endDate < queryStringParameters.startDate)
+    return badRequest({ message: "endDate was not gte than startDate" });
+
+  let data = { contentType: headers.accept, query: queryStringParameters };
   let job = {
     id: uuid(),
     status: "pending",
