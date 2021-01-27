@@ -1,0 +1,9 @@
+Resources:
+  StorageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: ${self:custom.storageBucketName}
+      LifecycleConfiguration:
+        Rules:
+          - ExpirationInDays: 1
+            Status: "Enabled"

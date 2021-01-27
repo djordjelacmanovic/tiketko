@@ -4,6 +4,14 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "pdfkit": "^0.11.0"
+    "aws-sdk": "^2.831.0",
+    "get-stream": "^6.0.0",
+    "node-fetch": "^2.6.1",
+    "node-jose": "^2.0.0",
+    "pdfkit": "^0.11.0",
+    "uuid": "^8.3.2",
+    "verify-cognito-token": "^1.2.4",
+    "xlsx": "^0.16.9",
+    "xml-js": "^1.6.11"
   }
 }

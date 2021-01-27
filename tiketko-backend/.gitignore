@@ -9,6 +9,7 @@ jspm_packages
 .webpack
 
 pdfkit-layer.zip
+static-deps-layer.zip
 test.js
 testread.js
 out.xls

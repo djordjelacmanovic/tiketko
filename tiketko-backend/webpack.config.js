@@ -4,7 +4,17 @@ const slsw = require("serverless-webpack");
 
 module.exports = {
   entry: slsw.lib.entries,
-  externals: ["pdfkit"],
+  externals: [
+    "pdfkit",
+    "aws-sdk",
+    "get-stream",
+    "node-fetch",
+    "node-jose",
+    "uuid",
+    "verify-cognito-token",
+    "xlsx",
+    "xml-js",
+  ],
   output: {
     libraryTarget: "commonjs",
     filename: "[name].js",

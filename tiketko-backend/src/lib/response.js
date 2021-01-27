@@ -1,11 +1,14 @@
 export const buildResponse = (statusCode, body, headers) => {
+  let serializedBody = typeof body === "object" ? JSON.stringify(body) : body;
   return {
     statusCode: statusCode,
     headers: {
       "Cache-Control": "no-cache",
+      "Content-Type":
+        typeof body === "object" ? "application/json" : "text/plain",
       ...headers,
     },
-    body: typeof body === "object" ? JSON.stringify(body) : body,
+    body: serializedBody,
   };
 };
 

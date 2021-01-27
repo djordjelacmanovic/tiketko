@@ -1,17 +1,15 @@
 import Auth from "@aws-amplify/auth";
-import { makeStyles } from "@material-ui/core/styles";
-import { AmplifySignOut, withAuthenticator } from "@aws-amplify/ui-react";
-import {
-  AppBar,
-  Toolbar,
-  IconButton,
-  CircularProgress,
-  Typography,
-} from "@material-ui/core";
+import API from "@aws-amplify/api";
 
-import MenuIcon from "@material-ui/icons/Menu";
-
+import { withAuthenticator } from "@aws-amplify/ui-react";
+import AppBar from "./components/AppBar";
 import { useState, useEffect } from "react";
+import { MessagingContextProvider } from "./components/MessagingContextProvider";
+import { MainPage } from "./pages/MainPage";
+import { AuthContext } from "./context/auth-context";
+import { Route, BrowserRouter, Switch } from "react-router-dom";
+import { TicketPage } from "./pages/TicketPage";
+import { ExportPage } from "./pages/ExportPage";
 
 Auth.configure({
   region: "eu-central-1",
@@ -19,23 +17,25 @@ Auth.configure({
   userPoolWebClientId: "6rs0nf202gn32l4tjki761vk85",
 });
 
-const useStyles = makeStyles((theme) => ({
-  root: {
-    flexGrow: 1,
-  },
-  menuButton: {
-    marginRight: theme.spacing(2),
-  },
-  title: {
-    flexGrow: 1,
-  },
-}));
+API.configure({
+  endpoints: [
+    {
+      name: "tiketko-api",
+      endpoint: "https://6678h23u28.execute-api.eu-central-1.amazonaws.com",
+      region: "eu-central-1",
+      custom_header: async () => {
+        return {
+          Authorization: `Bearer ${(await Auth.currentSession())
+            .getAccessToken()
+            .getJwtToken()}`,
+        };
+      },
+    },
+  ],
+});
 
 function App() {
-  const classes = useStyles();
-
-  const [userInfo, setUserInfo] = useState(null);
-
+  const [user, setUser] = useState({ user: null });
   useEffect(() => {
     Auth.currentSession().then((r) => {
       let { accessToken, idToken, refreshToken } = r;
@@ -51,35 +51,25 @@ function App() {
         },
       };
       console.log(userInfo);
-      setUserInfo(userInfo);
+      setUser({ user: userInfo.user });
     });
   }, []);
-
   return (
-    <>
-      <AppBar position="static">
-        <Toolbar>
-          <IconButton
-            edge="start"
-            className={classes.menuButton}
-            color="inherit"
-            aria-label="menu"
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" className={classes.title}>
-            Tiketko
-          </Typography>
-          <AmplifySignOut />
-        </Toolbar>
-      </AppBar>
-      {!userInfo ? (
-        <CircularProgress />
-      ) : (
-        <Typography>Hello {userInfo.user.username}</Typography>
-      )}
-    </>
+    <AuthContext.Provider value={user}>
+      <MessagingContextProvider>
+        <BrowserRouter>
+          <AppBar />
+          <Switch>
+            <Route exact path="/" component={MainPage} />
+            <Route path="/ticket/:id" component={TicketPage} />
+            {user.user && user.user.group == "admin" && (
+              <Route path="/export" component={ExportPage} />
+            )}
+          </Switch>
+        </BrowserRouter>
+      </MessagingContextProvider>
+    </AuthContext.Provider>
   );
 }
 
-export default withAuthenticator(App, true);
+export default withAuthenticator(App);

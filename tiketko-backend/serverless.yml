@@ -7,13 +7,13 @@ plugins:
   - serverless-iam-roles-per-function
 
 layers:
-  Pdfkit:
-    name: Pdfkit
+  StaticDeps:
+    name: DepsLayer
     compatibleRuntimes:
       - nodejs12.x
-    description: Required for Pdfkit
+    description: Faster deploys with 'cached' deps
     package:
-      artifact: layer/pdfkit-layer.zip
+      artifact: layer/static-deps-layer.zip
 
 provider:
   name: aws
@@ -23,7 +23,8 @@ provider:
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'eu-central-1'}
   memorySize: 128
-
+  layers:
+    - { Ref: StaticDepsLambdaLayer }
   websocketsApiRouteSelectionExpression: $request.body.action
   httpApi:
     cors: true
@@ -40,6 +41,20 @@ provider:
     TICKETS_TABLE: ${self:custom.ticketsTableName}
     MESSAGES_TABLE: ${self:custom.messagesTableName}
     SESSIONS_TABLE: ${self:custom.sessionsTableName}
+    JOBS_TABLE: ${self:custom.backgroundJobsTableName}
+    STORAGE_BUCKET: ${self:custom.storageBucketName}
+    WEBSOCKET_API_ENDPOINT:
+      !Join [
+        "",
+        [
+          "https://",
+          !Ref WebsocketsApi,
+          ".execute-api.",
+          "${self:provider.region}",
+          ".amazonaws.com/",
+          "${self:provider.stage}/",
+        ],
+      ]
 
   iamRoleStatements:
     - Effect: Allow
@@ -54,6 +69,18 @@ provider:
         - "Fn::Join": ["", [{ "Fn::GetAtt": ["SessionsTable", "Arn"] }, "/*"]]
         - "Fn::GetAtt": [MessagesTable, Arn]
         - "Fn::Join": ["", [{ "Fn::GetAtt": ["MessagesTable", "Arn"] }, "/*"]]
+        - "Fn::GetAtt": [BackgroundJobsTable, Arn]
+        - "Fn::Join":
+            ["", [{ "Fn::GetAtt": ["BackgroundJobsTable", "Arn"] }, "/*"]]
+    - Effect: Allow
+      Action:
+        - s3:*
+      Resource:
+        - "Fn::GetAtt": [StorageBucket, Arn]
+        - "Fn::Join": ["", [{ "Fn::GetAtt": ["StorageBucket", "Arn"] }, "/*"]]
+    - Effect: Allow
+      Action: "apigateway:*"
+      Resource: "*"
 
 custom:
   userPoolName: ${self:provider.stage}-${self:service}-user-pool
@@ -61,12 +88,8 @@ custom:
   ticketsTableName: ${self:provider.stage}-${self:service}-support-tickets
   messagesTableName: ${self:provider.stage}-${self:service}-messages
   sessionsTableName: ${self:provider.stage}-${self:service}-open-sessions
-  webpack:
-    webpackConfig: webpack.config.js
-    includeModules:
-      forceExclude:
-        - pdfkit
-    packager: npm
+  backgroundJobsTableName: ${self:provider.stage}-${self:service}-async-jobs
+  storageBucketName: ${self:provider.stage}-${self:service}-storage
 
 functions:
   hello:
@@ -115,8 +138,6 @@ functions:
 
   exportData:
     handler: src/data/export.handler
-    layers:
-      - { Ref: PdfkitLambdaLayer }
     events:
       - httpApi:
           method: get
@@ -164,6 +185,31 @@ functions:
     environment:
       COGNITO_USER_POOL_ID: !Ref CognitoUserPoolTiketkoUserPool
 
+  getBackgroundJob:
+    handler: src/jobs/get.handler
+    events:
+      - httpApi:
+          method: get
+          path: /jobs/{id}
+          authorizer:
+            name: cognitoJwtAuthorizer
+  listBackgroundJobs:
+    handler: src/jobs/list.handler
+    events:
+      - httpApi:
+          method: get
+          path: /jobs
+          authorizer:
+            name: cognitoJwtAuthorizer
+
+  processBackgroundJob:
+    handler: src/jobs/process.handler
+    events:
+      - stream:
+          type: dynamodb
+          arn:
+            Fn::GetAtt: [BackgroundJobsTable, StreamArn]
+
   addUserToGroup:
     handler: src/users/add-user-to-group.handler
     iamRoleStatementsInherit: true
@@ -193,3 +239,4 @@ functions:
 resources:
   - ${file(resources/cognito.yml)}
   - ${file(resources/dynamodb.yml)}
+  - ${file(resources/s3.yml)}
