@@ -69,6 +69,8 @@ export const NewTicket = () => {
             value={formState.title}
             onChange={handleChangeTitle}
             fullWidth
+            required
+            minLength={25}
           />
           <TextField
             autoFocus
@@ -82,6 +84,8 @@ export const NewTicket = () => {
             value={formState.details}
             onChange={handleChangeDetails}
             rows={20}
+            required
+            minLength={150}
           />
         </DialogContent>
         <DialogActions>

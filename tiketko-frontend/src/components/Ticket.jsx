@@ -8,6 +8,7 @@ import {
   IconButton,
   Avatar,
   Badge,
+  Box,
 } from "@material-ui/core";
 import CardContent from "@material-ui/core/CardContent";
 import Typography from "@material-ui/core/Typography";
@@ -75,10 +76,10 @@ export const Ticket = ({
         subheader={`${user.username} - ${moment(createdAt).fromNow()}`}
       />
       <CardContent>
-        <Typography variant="h5" component="h2">
+        <Typography variant="h5" component="h2" noWrap>
           {title}
         </Typography>
-        <Typography variant="body2" component="p">
+        <Typography variant="body2" component="p" noWrap>
           {details}
         </Typography>
       </CardContent>

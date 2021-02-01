@@ -39,7 +39,7 @@ export const handler = async ({ Records }) => {
       })
       .promise();
     if (userSession)
-      await sendMessage(userSessions[0].connection_id, {
+      await sendMessage(userSession.connection_id, {
         type: "STORE_TICKET",
         data: ticket,
       });

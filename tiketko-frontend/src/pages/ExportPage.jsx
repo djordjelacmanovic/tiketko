@@ -66,6 +66,7 @@ export const ExportPage = () => {
         name="trip-start"
         onChange={onDateChange}
         value={date}
+        required
       />
 
       <select onChange={onSelectFormat}>

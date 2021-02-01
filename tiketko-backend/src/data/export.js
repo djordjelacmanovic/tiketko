@@ -10,10 +10,13 @@ export const handler = async (event) => {
   let group = requestContext.authorizer.jwt.claims["cognito:groups"];
   if (!group.includes("admin")) return unauthorized();
 
-  if (queryStringParameters.endDate < queryStringParameters.startDate)
-    return badRequest({ message: "endDate was not gte than startDate" });
-
   let { format } = queryStringParameters;
+
+  if (!["json", "xml", "pdf", "xls"].includes(format))
+    return badRequest({
+      message: `format ${format} is not a valid export format.`,
+    });
+
   let data = { format, query: queryStringParameters };
   let job = {
     id: uuid(),

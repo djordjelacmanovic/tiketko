@@ -22,6 +22,7 @@ import { Link, NavLink } from "react-router-dom";
 import { MessagingContext } from "../context/messaging-context";
 import HomeIcon from "@material-ui/icons/Home";
 import { SearchContext } from "../context/search-context";
+import ConfirmationNumberIcon from "@material-ui/icons/ConfirmationNumber";
 
 const useStyles = makeStyles((theme) => ({
   grow: {
@@ -187,8 +188,10 @@ export default function PrimarySearchAppBar() {
             className={classes.menuButton}
             color="inherit"
             aria-label="open drawer"
+            component={Link}
+            to="/"
           >
-            <MenuIcon />
+            <ConfirmationNumberIcon />
           </IconButton>
           <Typography className={classes.title} variant="h6" noWrap>
             Tiketko

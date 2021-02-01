@@ -13,6 +13,6 @@ export async function sendMessage(connectionId, payload) {
       })
       .promise();
   } catch (error) {
-    console.error("Unable to generate socket message", error);
+    console.error("Unable to generate socket message: ", error);
   }
 }
