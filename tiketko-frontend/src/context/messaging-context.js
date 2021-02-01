@@ -1,8 +1,9 @@
 import { createContext } from "react";
+import { ReadyState } from "react-use-websocket";
 
 export const MessagingContext = createContext({
-  connectionStatus: "Uninstantiated",
-  sendJsonMessage: async () => {},
+  sendMessage: async () => {},
   tickets: {},
+  unread: [],
   dispatch: () => {},
 });

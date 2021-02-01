@@ -10,7 +10,7 @@ import uuid from "uuid/v4";
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const s3 = new AWS.S3();
 
-export default async ({ contentType, query: { startDate } }) => {
+export default async ({ format, query: { startDate } }) => {
   const { Items: userDtos } = await dynamodb
     .scan({
       TableName: process.env.USERS_TABLE,
@@ -58,11 +58,11 @@ export default async ({ contentType, query: { startDate } }) => {
     })
   );
 
-  let outputData = exportToFormat(contentType, data);
+  let outputData = exportToFormat(format, data);
 
   if (!outputData) return;
 
-  let filename = createFileName(contentType);
+  let filename = createFileName(format);
   let s3Params = {
     Bucket: process.env.STORAGE_BUCKET,
     Key: filename,
@@ -72,7 +72,7 @@ export default async ({ contentType, query: { startDate } }) => {
     .upload({
       ...s3Params,
       Body: outputData,
-      ContentType: contentType,
+      ContentType: formatToMimeType(format),
       ContentDisposition: `attachment; filename="${filename}"`,
     })
     .promise();
@@ -83,32 +83,41 @@ export default async ({ contentType, query: { startDate } }) => {
   });
 };
 
-function createFileName(acceptHeader) {
-  switch (acceptHeader) {
-    case "application/json":
+function createFileName(format) {
+  switch (format) {
+    case "json":
       return `data-export-${uuid()}.json`;
-    case "text/xml":
-    case "application/xml":
+    case "xml":
       return `data-export-${uuid()}.xml`;
-    case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-    case "application/vnd.ms-excel":
+    case "xls":
       return `data-export-${uuid()}.xls`;
-    case "application/pdf":
+    case "pdf":
       return `data-export-${uuid()}.pdf`;
   }
 }
 
-function exportToFormat(acceptHeader, data) {
-  switch (acceptHeader) {
-    case "application/json":
+function formatToMimeType(format) {
+  switch (format) {
+    case "json":
+      return "application/json";
+    case "xml":
+      return "application/xml";
+    case "xls":
+      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    case "pdf":
+      return "application/pdf";
+  }
+}
+
+function exportToFormat(format, data) {
+  switch (format) {
+    case "json":
       return exportToJson(data);
-    case "text/xml":
-    case "application/xml":
+    case "xml":
       return exportToXml(data);
-    case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-    case "application/vnd.ms-excel":
+    case "xls":
       return exportToXls(data);
-    case "application/pdf":
+    case "pdf":
       return exportToPdf(data);
   }
 }

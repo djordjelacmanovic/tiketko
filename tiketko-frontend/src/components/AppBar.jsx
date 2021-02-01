@@ -19,6 +19,9 @@ import Auth from "@aws-amplify/auth";
 import { AmplifySignOut } from "@aws-amplify/ui-react";
 import ImportExportIcon from "@material-ui/icons/ImportExport";
 import { Link, NavLink } from "react-router-dom";
+import { MessagingContext } from "../context/messaging-context";
+import HomeIcon from "@material-ui/icons/Home";
+import { SearchContext } from "../context/search-context";
 
 const useStyles = makeStyles((theme) => ({
   grow: {
@@ -88,11 +91,12 @@ export default function PrimarySearchAppBar() {
   const classes = useStyles();
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = React.useState(null);
+  const { user } = React.useContext(AuthContext);
+  const { unread } = React.useContext(MessagingContext);
+  const { query, setQuery } = useContext(SearchContext);
 
   const isMenuOpen = Boolean(anchorEl);
   const isMobileMenuOpen = Boolean(mobileMoreAnchorEl);
-
-  const { user } = React.useContext(AuthContext);
 
   const handleProfileMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -139,13 +143,27 @@ export default function PrimarySearchAppBar() {
       onClose={handleMobileMenuClose}
     >
       <MenuItem>
-        <IconButton aria-label="show 11 new notifications" color="inherit">
-          <Badge badgeContent={11} color="secondary">
-            <NotificationsIcon />
-          </Badge>
+        <IconButton color="inherit" component={NavLink} to="/">
+          <IconButton color="inherit" component={NavLink} to="/">
+            {unread.length > 0 ? (
+              <Badge badgeContent={unread.length} color="secondary">
+                <HomeIcon />
+              </Badge>
+            ) : (
+              <HomeIcon />
+            )}
+          </IconButton>
         </IconButton>
-        <p>Notifications</p>
+        <p>Home</p>
       </MenuItem>
+      {user && user.group == "admin" && (
+        <MenuItem>
+          <IconButton color="inherit" component={NavLink} to="/data">
+            <ImportExportIcon />
+          </IconButton>
+          <p>Data</p>
+        </MenuItem>
+      )}
       <MenuItem onClick={handleProfileMenuOpen}>
         <IconButton
           aria-label="account of current user"
@@ -181,6 +199,8 @@ export default function PrimarySearchAppBar() {
             </div>
             <InputBase
               placeholder="Search…"
+              value={query}
+              onChange={({ target: { value } }) => setQuery(value)}
               classes={{
                 root: classes.inputRoot,
                 input: classes.inputInput,
@@ -190,18 +210,20 @@ export default function PrimarySearchAppBar() {
           </div>
           <div className={classes.grow} />
           <div className={classes.sectionDesktop}>
-            {user && user.group == "admin" && (
-              <NavLink to="/export">
-                <IconButton color="inherit">
-                  <ImportExportIcon />
-                </IconButton>
-              </NavLink>
-            )}
-            <IconButton aria-label="show 17 new notifications" color="inherit">
-              <Badge badgeContent={17} color="secondary">
-                <NotificationsIcon />
-              </Badge>
+            <IconButton color="inherit" component={NavLink} to="/">
+              {unread.length > 0 ? (
+                <Badge badgeContent={unread.length} color="secondary">
+                  <HomeIcon />
+                </Badge>
+              ) : (
+                <HomeIcon />
+              )}
             </IconButton>
+            {user && user.group == "admin" && (
+              <IconButton color="inherit" component={NavLink} to="/data">
+                <ImportExportIcon />
+              </IconButton>
+            )}
             <IconButton
               edge="end"
               aria-label="account of current user"

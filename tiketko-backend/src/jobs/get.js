@@ -2,7 +2,7 @@ import AWS from "aws-sdk";
 import { notFound, success, unauthorized } from "../lib/response";
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 
-export const handler = async ({ pathParameters: { id } }) => {
+export const handler = async ({ requestContext, pathParameters: { id } }) => {
   let group = requestContext.authorizer.jwt.claims["cognito:groups"];
   if (!group.includes("admin")) return unauthorized();
 

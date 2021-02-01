@@ -1,35 +1,58 @@
 import { MessagingContext } from "../context/messaging-context";
-import useWebSocket from "react-use-websocket";
-import { useReducer, useState, useCallback } from "react";
+import useWebSocket, { ReadyState } from "react-use-websocket";
+import { useReducer, useCallback, createContext } from "react";
 import Auth from "@aws-amplify/auth";
-import { readyStateToString } from "../lib/util";
+import { DispatchContext } from "../context/dispatch-context";
+const wsUrl = "wss://fv4wpaz9x9.execute-api.eu-central-1.amazonaws.com/dev";
 
 const arrToObj = (arr) =>
   arr.reduce((prev, curr) => ({ ...prev, ...{ [curr.id]: curr } }), {});
 
 const reducer = (state, action) => {
+  let { tickets, lastMessage } = state;
   console.log(action);
-  let { type, data } = action;
+  let { type, data, newRawMessage } = action;
+
   switch (type) {
     case "STORE_TICKET":
-      return { ...state, ...{ [data.id]: data } };
+      if (newRawMessage)
+        state = {
+          ...state,
+          lastMessage: newRawMessage,
+          unread: [...state.unread, data.id],
+        };
+      return { ...state, tickets: { ...tickets, ...{ [data.id]: data } } };
     case "NEW_MESSAGE":
-      let ticket = state[data.ticket_id];
+      console.log("lastMessage", lastMessage);
+      console.log("newRawMessage", newRawMessage);
+      if (lastMessage == newRawMessage) {
+        console.log("nop");
+        return state;
+      }
+      let ticket = tickets[data.ticketId];
       if (ticket) {
         let msgs = ticket.messages || [];
-        let { timestamp: lastTs } = msgs[msgs.length - 1];
-        if (lastTs == data.timestamp) return state;
-        ticket.messages = [...msgs, data];
-        return { ...state, ...{ [data.ticket_id]: ticket } };
+        ticket = { ...ticket, messages: [...msgs, data] };
+        return {
+          ...state,
+          lastMessage: newRawMessage,
+          tickets: { ...tickets, ...{ [ticket.id]: ticket } },
+          unread: [...state.unread, ticket.id],
+        };
       } else return state;
-    case "LOAD_MESSAGES":
-      return arrToObj(data);
+    case "MARK_AS_READ":
+      if (!state.unread.some((tid) => tid == data.ticketId)) return state;
+      return {
+        ...state,
+        unread: state.unread.filter((tid) => tid != data.ticketId),
+      };
+    case "LOAD_TICKETS":
+      return { ...state, tickets: arrToObj(data) };
     default:
       console.log("default");
       return state;
   }
 };
-const wsUrl = "wss://fv4wpaz9x9.execute-api.eu-central-1.amazonaws.com/dev";
 
 export const MessagingContextProvider = ({ children }) => {
   const getSocketUrl = useCallback(async () => {
@@ -45,24 +68,33 @@ export const MessagingContextProvider = ({ children }) => {
     lastJsonMessage,
     readyState,
   } = useWebSocket(getSocketUrl, { shouldReconnect: (closeEvent) => true });
-  const [state, dispatch] = useReducer(reducer, {});
-  const [lastSeenMessage, setLastSeenMessage] = useState(null);
 
-  console.log(lastJsonMessage);
+  const sendMessage = useCallback((msg) => sendJsonMessage(msg), []);
+  const [state, dispatch] = useReducer(reducer, {
+    sendMessage,
+    readyState,
+    tickets: {},
+    unread: [],
+    lastMessage: lastMessage && lastMessage.data,
+  });
 
-  const connectionStatus = readyStateToString(readyState);
-  console.log(connectionStatus);
+  let { lastMessage: lastSeenMessage } = state;
 
-  if (lastJsonMessage && lastMessage != lastSeenMessage) {
-    setLastSeenMessage(lastMessage);
-    dispatch(lastJsonMessage);
-  }
+  if (lastJsonMessage && lastSeenMessage != lastMessage.data)
+    dispatch({
+      ...lastJsonMessage,
+      newRawMessage: lastMessage.data,
+    });
 
   return (
-    <MessagingContext.Provider
-      value={{ sendJsonMessage, connectionStatus, tickets: state, dispatch }}
-    >
-      {children}
-    </MessagingContext.Provider>
+    <ConnectionStateContext.Provider value={readyState}>
+      <MessagingContext.Provider value={state}>
+        <DispatchContext.Provider value={dispatch}>
+          {children}
+        </DispatchContext.Provider>
+      </MessagingContext.Provider>
+    </ConnectionStateContext.Provider>
   );
 };
+
+export const ConnectionStateContext = createContext(ReadyState.UNINSTANTIATED);

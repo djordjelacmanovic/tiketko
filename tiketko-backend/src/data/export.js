@@ -5,7 +5,7 @@ import AWS from "aws-sdk";
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 
 export const handler = async (event) => {
-  const { headers, requestContext, queryStringParameters } = event;
+  const { requestContext, queryStringParameters } = event;
 
   let group = requestContext.authorizer.jwt.claims["cognito:groups"];
   if (!group.includes("admin")) return unauthorized();
@@ -13,7 +13,8 @@ export const handler = async (event) => {
   if (queryStringParameters.endDate < queryStringParameters.startDate)
     return badRequest({ message: "endDate was not gte than startDate" });
 
-  let data = { contentType: headers.accept, query: queryStringParameters };
+  let { format } = queryStringParameters;
+  let data = { format, query: queryStringParameters };
   let job = {
     id: uuid(),
     status: "pending",

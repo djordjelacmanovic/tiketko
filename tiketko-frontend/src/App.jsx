@@ -10,6 +10,7 @@ import { AuthContext } from "./context/auth-context";
 import { Route, BrowserRouter, Switch } from "react-router-dom";
 import { TicketPage } from "./pages/TicketPage";
 import { ExportPage } from "./pages/ExportPage";
+import { SearchContext } from "./context/search-context";
 
 Auth.configure({
   region: "eu-central-1",
@@ -36,6 +37,7 @@ API.configure({
 
 function App() {
   const [user, setUser] = useState({ user: null });
+  const [query, setQuery] = useState(null);
   useEffect(() => {
     Auth.currentSession().then((r) => {
       let { accessToken, idToken, refreshToken } = r;
@@ -58,14 +60,16 @@ function App() {
     <AuthContext.Provider value={user}>
       <MessagingContextProvider>
         <BrowserRouter>
-          <AppBar />
-          <Switch>
-            <Route exact path="/" component={MainPage} />
-            <Route path="/ticket/:id" component={TicketPage} />
-            {user.user && user.user.group == "admin" && (
-              <Route path="/export" component={ExportPage} />
-            )}
-          </Switch>
+          <SearchContext.Provider value={{ query, setQuery }}>
+            <AppBar />
+            <Switch>
+              <Route exact path="/" component={MainPage} />
+              <Route path="/tickets/:id" component={TicketPage} />
+              {user.user && user.user.group == "admin" && (
+                <Route path="/data" component={ExportPage} />
+              )}
+            </Switch>
+          </SearchContext.Provider>
         </BrowserRouter>
       </MessagingContextProvider>
     </AuthContext.Provider>

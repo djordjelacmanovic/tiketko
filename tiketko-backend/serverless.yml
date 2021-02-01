@@ -92,15 +92,6 @@ custom:
   storageBucketName: ${self:provider.stage}-${self:service}-storage
 
 functions:
-  hello:
-    handler: src/handlers/hello.hello
-    events:
-      - httpApi:
-          method: post
-          path: /hello
-          authorizer:
-            name: cognitoJwtAuthorizer
-
   createTicket:
     handler: src/tickets/create.handler
     events:
@@ -109,6 +100,13 @@ functions:
           path: /tickets
           authorizer:
             name: cognitoJwtAuthorizer
+  onTicketChanged:
+    handler: src/tickets/on-ticket-change.handler
+    events:
+      - stream:
+          type: "dynamodb"
+          arn:
+            Fn::GetAtt: [TicketsTable, StreamArn]
   getTicket:
     handler: src/tickets/get.handler
     events:

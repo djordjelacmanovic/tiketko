@@ -1,8 +1,8 @@
 import AWS from "aws-sdk";
-import { Message } from "../domain/message";
+import { Ticket } from "../domain/ticket";
+import { sendMessage } from "../lib/api-gateway-ws";
 
 const dynamodb = new AWS.DynamoDB.DocumentClient();
-import { sendMessage } from "../lib/api-gateway-ws";
 
 export const handler = async ({ Records }) => {
   let { Items: adminSessions } = await dynamodb
@@ -16,30 +16,19 @@ export const handler = async ({ Records }) => {
     })
     .promise();
 
-  console.log(adminSessions);
-
   for (const {
     eventName,
     dynamodb: { NewImage },
   } of Records) {
+    console.log("eventName", eventName);
+    console.log("NewImage", NewImage);
     if (eventName != "INSERT" && eventName != "MODIFY") continue;
-    const messageDto = AWS.DynamoDB.Converter.unmarshall(NewImage);
+    const ticketDto = AWS.DynamoDB.Converter.unmarshall(NewImage);
+    const ticket = Ticket.fromDto(ticketDto);
 
-    const message = Message.fromDto(messageDto);
-
-    let { Item: ticket } = await dynamodb
-      .get({
-        TableName: process.env.TICKETS_TABLE,
-        Key: { id: message.ticketId },
-      })
-      .promise();
-
-    if (!ticket) {
-      console.error(`Ticket ${message.ticket_id} does not exist.`);
-      continue;
-    }
-
-    let { Items: userSessions } = await dynamodb
+    let {
+      Items: [userSession],
+    } = await dynamodb
       .query({
         TableName: process.env.SESSIONS_TABLE,
         IndexName: "SessionsByUserId",
@@ -49,17 +38,19 @@ export const handler = async ({ Records }) => {
         },
       })
       .promise();
-
-    console.log(message);
-    console.log(ticket);
-    console.log(userSessions);
+    if (userSession)
+      await sendMessage(userSessions[0].connection_id, {
+        type: "STORE_TICKET",
+        data: ticket,
+      });
 
     await Promise.all(
-      [...adminSessions, ...userSessions].map(({ connection_id }) =>
-        sendMessage(connection_id, {
-          type: "NEW_MESSAGE",
-          data: message,
-        })
+      adminSessions.map(
+        async ({ connection_id }) =>
+          await sendMessage(connection_id, {
+            type: "STORE_TICKET",
+            data: ticket,
+          })
       )
     );
   }

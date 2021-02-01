@@ -30,7 +30,8 @@ export const handler = async (event, context) => {
     })
     .promise();
 
-  let message = new Message(ticketId, User.fromDto(userDto), text);
+  let user = User.fromDto(userDto);
+  let message = new Message(ticketId, user, text);
 
   await dynamodb
     .put({
@@ -38,6 +39,15 @@ export const handler = async (event, context) => {
       Item: message.toDto(),
     })
     .promise();
+
+  if (user.group === "admin")
+    await dynamodb
+      .update({
+        TableName: process.env.TICKETS_TABLE,
+        Key: { id: ticketId },
+        UpdateExpression: `SET ticket_status = 'IN_PROGRESS'`,
+      })
+      .promise();
 
   return success({ event });
 };

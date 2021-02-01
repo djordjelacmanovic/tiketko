@@ -2,6 +2,18 @@ import API from "@aws-amplify/api";
 import Auth from "@aws-amplify/auth";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import {
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  Avatar,
+  IconButton,
+  ListItemSecondaryAction,
+  Link,
+} from "@material-ui/core";
+import DownloadIcon from "@material-ui/icons/CloudDownload";
+import moment from "moment";
 
 export const ExportPage = () => {
   let [exports, setExports] = useState([]);
@@ -24,13 +36,12 @@ export const ExportPage = () => {
   const onSelectFormat = (ev) => setFormat(ev.target.value);
 
   const exportClick = async () => {
-    await API.get("tiketko-api", `/data?startDate=${date}`, {
-      headers: {
-        Accept: getAcceptHeader(format),
-      },
-    });
-
-    setTimeout(() => setRefresh(true), 1000);
+    let { jobId } = await API.get(
+      "tiketko-api",
+      `/data?startDate=${date}&format=${format}`
+    );
+    setRefresh(true);
+    pollUntilDone(jobId, () => setRefresh(true));
   };
 
   const onFileSelected = (e) => {
@@ -39,8 +50,7 @@ export const ExportPage = () => {
   const importClick = async () => {
     await fileUpload(
       "https://6678h23u28.execute-api.eu-central-1.amazonaws.com/data",
-      file,
-      getAcceptHeader(format)
+      file
     );
   };
   const onDateChange = (e) => setDate(e.target.value);
@@ -81,46 +91,57 @@ export const ExportPage = () => {
         accept="application/vnd.ms-excel"
       />
       <button onClick={importClick}>Import</button>
-      {exports.map((e) => makeExportItem(e))}
+      <List>{exports.map((e) => makeExportItem(e))}</List>
     </>
   );
 };
 
-const fileUpload = async (url, file, accept) => {
+const fileUpload = async (url, file) => {
   const session = await Auth.currentSession();
   const token = session.getIdToken().getJwtToken();
   return await axios.post(url, file, {
     headers: {
       "Content-Type": "multipart/form-data",
       Authorization: `Bearer ${token}`,
-      Accept: accept,
     },
   });
 };
 
 function makeExportItem(e) {
   return (
-    <p>
-      sch: {e.scheduled_at}, fin: {e.finished_at} - {e.data.contentType} -{" "}
-      {e.status} -
-      {e.result && e.result.url && (
-        <a href={e.result.url} target="_blank">
-          Download
-        </a>
-      )}
-    </p>
+    <ListItem>
+      <ListItemAvatar>
+        <Avatar>{e.data.format}</Avatar>
+      </ListItemAvatar>
+      <ListItemText primary={primaryText(e)} secondary={secondaryText(e)} />
+      <ListItemSecondaryAction>
+        <IconButton
+          edge="end"
+          disabled={!e.result || !e.result.url}
+          component={Link}
+          href={e.result && e.result.url}
+          target="_blank"
+        >
+          <DownloadIcon />
+        </IconButton>
+      </ListItemSecondaryAction>
+    </ListItem>
   );
 }
 
-function getAcceptHeader(format) {
-  switch (format) {
-    case "json":
-      return "application/json";
-    case "xml":
-      return "application/xml";
-    case "xls":
-      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-    case "pdf":
-      return "application/pdf";
-  }
+function primaryText(job) {
+  return `Export tickets created since ${job.data.query.startDate}`;
+}
+
+function secondaryText(job) {
+  return (
+    `scheduled: ${moment(job.scheduled_at).fromNow()}` +
+    (job.finished_at ? `, finished: ${moment(job.finished_at).fromNow()}` : "")
+  );
+}
+
+async function pollUntilDone(jobId, refreshCb) {
+  let { status } = await API.get("tiketko-api", `/jobs/${jobId}`);
+  if (status != "pending") return refreshCb();
+  setTimeout(() => pollUntilDone(jobId, refreshCb), 500);
 }
